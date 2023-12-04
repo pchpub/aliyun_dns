@@ -116,6 +116,7 @@
 
 // Include the rest of the crate's implementation here.
 use anyhow::{Context, Result};
+use base64::Engine;
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use reqwest::{Client, Response};
@@ -123,7 +124,6 @@ use serde::Deserialize;
 use sha1::Sha1;
 use std::collections::HashMap;
 use url::Url;
-use base64::Engine;
 
 /// An enum representing the API response, containing either a successful result or an error.
 ///
@@ -248,6 +248,7 @@ impl AliyunDns {
     /// * `sub_domain` - The subdomain of the domain.
     /// * `record_type` - The type of the record (e.g., "A", "CNAME", "MX", etc.).
     /// * `record_value` - The value of the record (e.g., an IP address or a hostname).
+    /// * `ttl` - The TTL (time to live) value of the record.
     ///
     /// # Returns
     ///
@@ -266,7 +267,8 @@ impl AliyunDns {
         domain_name: &str,
         sub_domain: &str,
         record_type: &str,
-        record_value: &str
+        record_value: &str,
+        ttl: Option<u64>,
     ) -> Result<RecordResponse> {
         let action = "AddDomainRecord";
         let mut params = HashMap::new();
@@ -274,7 +276,14 @@ impl AliyunDns {
         params.insert("RR", sub_domain);
         params.insert("Type", record_type);
         params.insert("Value", record_value);
-        
+        let mut ttl_value: Option<String> = None;
+        if let Some(t) = ttl {
+            ttl_value = Some(t.to_string());
+        }
+        if let Some(ref ttl_str) = ttl_value {
+            params.insert("TTL", ttl_str);
+        }
+
         self.send_request(action, params).await
     }
 
@@ -306,7 +315,7 @@ impl AliyunDns {
         let mut params = HashMap::new();
         params.insert("DomainName", domain_name);
         params.insert("RR", rr);
-        
+
         self.send_request(action, params).await
     }
 
@@ -328,14 +337,11 @@ impl AliyunDns {
     /// let aliyun_dns = AliyunDns::new("your_access_key_id", "your_access_key_secret");
     /// let result: Result<RecordResponse, _> = aliyun_dns.delete_domain_record("record_id").await;
     /// ```
-    pub async fn delete_domain_record(
-        &self,
-        record_id: &str,
-    ) -> Result<RecordResponse> {
+    pub async fn delete_domain_record(&self, record_id: &str) -> Result<RecordResponse> {
         let action = "DeleteDomainRecord";
         let mut params = HashMap::new();
         params.insert("RecordId", record_id);
-        
+
         self.send_request(action, params).await
     }
 
@@ -347,6 +353,7 @@ impl AliyunDns {
     /// * `sub_domain` - The updated subdomain of the domain.
     /// * `record_type` - The updated type of the record (e.g., "A", "CNAME", "MX", etc.).
     /// * `value` - The updated value of the record (e.g., an IP address or a hostname).
+    /// * `ttl` - The updated TTL (time to live) value of the record.
     ///
     /// # Returns
     ///
@@ -366,6 +373,7 @@ impl AliyunDns {
         sub_domain: &str,
         record_type: &str,
         value: &str,
+        ttl: Option<u64>,
     ) -> Result<RecordResponse> {
         let action = "UpdateDomainRecord";
         let mut params = HashMap::new();
@@ -373,7 +381,15 @@ impl AliyunDns {
         params.insert("RR", sub_domain);
         params.insert("Type", record_type);
         params.insert("Value", value);
-        
+
+        let mut ttl_value: Option<String> = None;
+        if let Some(t) = ttl {
+            ttl_value = Some(t.to_string());
+        }
+        if let Some(ref ttl_str) = ttl_value {
+            params.insert("TTL", ttl_str);
+        }
+
         self.send_request(action, params).await
     }
 
@@ -399,6 +415,44 @@ impl AliyunDns {
         let action = "DescribeDomainRecords";
         let mut params = HashMap::new();
         params.insert("DomainName", domain_name);
+        self.send_request(action, params).await
+    }
+
+    /// Queries the subdomain records for a specific domain name.
+    ///
+    /// # Arguments
+    ///
+    /// * `domain` - The domain name for which the records should be queried.
+    /// * `sub_domain` - The subdomain of the domain. It should end with domain name.
+    /// * `domain_type` - The type of the record (e.g., "A", "CNAME", "MX", etc.).
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `DomainRecordsResponse` if the operation is successful, or an error if the operation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use my_crate::{AliyunDns, DomainRecordsResponse};
+    ///
+    /// let aliyun_dns = AliyunDns::new("your_access_key_id", "your_access_key_secret");
+    /// let result: Result<DomainRecordsResponse, _> = aliyun_dns.query_subdomain_records("example.com","a.example.com","A").await;
+    /// ```
+    pub async fn query_subdomain_records(
+        &self,
+        domain: &str,
+        subdomain_name: &str,
+        domain_type: &str,
+    ) -> Result<DomainRecordsResponse> {
+        let action = "DescribeSubDomainRecords";
+        let mut params = HashMap::new();
+        params.insert("SubDomain", subdomain_name);
+        if domain_type != "" {
+            params.insert("Type", domain_type);
+        }
+        if domain != "" {
+            params.insert("DomainName", domain);
+        }
         self.send_request(action, params).await
     }
 
@@ -477,7 +531,7 @@ impl AliyunDns {
         mac.update(string_to_sign.as_bytes());
         let result = mac.finalize();
         let signature = base64::engine::general_purpose::STANDARD.encode(result.into_bytes());
-    
+
         signature
     }
 
@@ -492,19 +546,16 @@ impl AliyunDns {
     /// A `Result` containing the deserialized response if the operation is successful, or an error if the operation fails.
     ///
     /// This function is used internally by the `aliyun_dns` crate and is not part of the public API.
-    async fn handle_response<T: for<'de> Deserialize<'de>>(
-        &self,
-        response: Response,
-    ) -> Result<T> {
+    async fn handle_response<T: for<'de> Deserialize<'de>>(&self, response: Response) -> Result<T> {
         // let status = response.status();
         // if !status.is_success() {
         //     return Err(anyhow::anyhow!("Request failed with status: {}", status));
         // }
-    
+
         let response_text = response.text().await?;
         let response_data: ApiResponse<T> = serde_json::from_str(&response_text)
             .context(format!("Failed to parse JSON response: {}", response_text))?;
-    
+
         match response_data {
             ApiResponse::Success(result) => Ok(result),
             ApiResponse::Error {
@@ -519,7 +570,6 @@ impl AliyunDns {
             )),
         }
     }
-
 }
 
 fn percent_encode(input: &str) -> String {
@@ -547,9 +597,6 @@ mod tests {
         assert_eq!(percent_encode("a b"), "a+b".to_string());
         assert_eq!(percent_encode("*"), "%2A".to_string());
         assert_eq!(percent_encode("%"), "%25".to_string());
-        assert_eq!(
-            percent_encode("你好"),
-            "%E4%BD%A0%E5%A5%BD".to_string()
-        );
+        assert_eq!(percent_encode("你好"), "%E4%BD%A0%E5%A5%BD".to_string());
     }
 }
