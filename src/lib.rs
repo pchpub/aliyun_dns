@@ -398,6 +398,8 @@ impl AliyunDns {
     /// # Arguments
     ///
     /// * `domain_name` - The domain name for which the records should be queried.
+    /// * `page_number` - The page number of the results to return.
+    /// * `page_size` - The number of results to return per page.
     ///
     /// # Returns
     ///
@@ -411,10 +413,32 @@ impl AliyunDns {
     /// let aliyun_dns = AliyunDns::new("your_access_key_id", "your_access_key_secret");
     /// let result: Result<DomainRecordsResponse, _> = aliyun_dns.query_domain_records("example.com").await;
     /// ```
-    pub async fn query_domain_records(&self, domain_name: &str) -> Result<DomainRecordsResponse> {
+    pub async fn query_domain_records(
+        &self,
+        domain_name: &str,
+        page_number: Option<u64>,
+        page_size: Option<u64>,
+    ) -> Result<DomainRecordsResponse> {
         let action = "DescribeDomainRecords";
         let mut params = HashMap::new();
         params.insert("DomainName", domain_name);
+        // PageNumber
+        let mut page_number_value: Option<String> = None;
+        if let Some(t) = page_number {
+            page_number_value = Some(t.to_string());
+        }
+        if let Some(ref page_number_str) = page_number_value {
+            params.insert("PageNumber", page_number_str);
+        }
+        // PageSize
+        let mut page_size_value: Option<String> = None;
+        if let Some(t) = page_size {
+            page_size_value = Some(t.to_string());
+        }
+        if let Some(ref page_size_str) = page_size_value {
+            params.insert("PageSize", page_size_str);
+        }
+
         self.send_request(action, params).await
     }
 
@@ -425,6 +449,8 @@ impl AliyunDns {
     /// * `domain` - The domain name for which the records should be queried.
     /// * `sub_domain` - The subdomain of the domain. It should end with domain name.
     /// * `domain_type` - The type of the record (e.g., "A", "CNAME", "MX", etc.).
+    /// * `page_number` - The page number of the results to return.
+    /// * `page_size` - The number of results to return per page.
     ///
     /// # Returns
     ///
@@ -443,6 +469,8 @@ impl AliyunDns {
         domain: &str,
         subdomain_name: &str,
         domain_type: &str,
+        page_number: Option<u64>,
+        page_size: Option<u64>,
     ) -> Result<DomainRecordsResponse> {
         let action = "DescribeSubDomainRecords";
         let mut params = HashMap::new();
@@ -453,6 +481,23 @@ impl AliyunDns {
         if domain != "" {
             params.insert("DomainName", domain);
         }
+        // PageNumber
+        let mut page_number_value: Option<String> = None;
+        if let Some(t) = page_number {
+            page_number_value = Some(t.to_string());
+        }
+        if let Some(ref page_number_str) = page_number_value {
+            params.insert("PageNumber", page_number_str);
+        }
+        // PageSize
+        let mut page_size_value: Option<String> = None;
+        if let Some(t) = page_size {
+            page_size_value = Some(t.to_string());
+        }
+        if let Some(ref page_size_str) = page_size_value {
+            params.insert("PageSize", page_size_str);
+        }
+
         self.send_request(action, params).await
     }
 
