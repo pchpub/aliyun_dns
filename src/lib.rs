@@ -245,7 +245,7 @@ impl AliyunDns {
     /// # Arguments
     ///
     /// * `domain_name` - The domain name for which the record should be added.
-    /// * `sub_domain` - The subdomain of the domain.
+    /// * `rr` - The subdomain prefix (e.g., "www" for "www.example.com").
     /// * `record_type` - The type of the record (e.g., "A", "CNAME", "MX", etc.).
     /// * `record_value` - The value of the record (e.g., an IP address or a hostname).
     /// * `ttl` - The TTL (time to live) value of the record.
@@ -265,7 +265,7 @@ impl AliyunDns {
     pub async fn add_domain_record(
         &self,
         domain_name: &str,
-        sub_domain: &str,
+        rr: &str,
         record_type: &str,
         record_value: &str,
         ttl: Option<u64>,
@@ -273,7 +273,7 @@ impl AliyunDns {
         let action = "AddDomainRecord";
         let mut params = HashMap::new();
         params.insert("DomainName", domain_name);
-        params.insert("RR", sub_domain);
+        params.insert("RR", rr);
         params.insert("Type", record_type);
         params.insert("Value", record_value);
         let mut ttl_value: Option<String> = None;
