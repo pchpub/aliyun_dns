@@ -293,6 +293,7 @@ impl AliyunDns {
     ///
     /// * `domain_name` - The domain name for which the subdomain records should be deleted.
     /// * `rr` - The subdomain prefix (e.g., "www" for "www.example.com").
+    /// * `record_type` - The type of the record (e.g., "A", "CNAME", "MX", etc.).
     ///
     /// # Returns
     ///
@@ -304,17 +305,21 @@ impl AliyunDns {
     /// use aliyun_dns::{AliyunDns, DeleteSubDomainRecordsResponse};
     ///
     /// let aliyun_dns = AliyunDns::new("your_access_key_id", "your_access_key_secret");
-    /// let result: Result<DeleteSubDomainRecordsResponse, _> = aliyun_dns.delete_subdomain_records("example.com", "www").await;
+    /// let result: Result<DeleteSubDomainRecordsResponse, _> = aliyun_dns.delete_subdomain_records("example.com", "www", Some("A")).await;
     /// ```
     pub async fn delete_subdomain_records(
         &self,
         domain_name: &str,
         rr: &str,
+        record_type: Option<&str>,
     ) -> Result<DeleteSubDomainRecordsResponse> {
         let action = "DeleteSubDomainRecords";
         let mut params = HashMap::new();
         params.insert("DomainName", domain_name);
         params.insert("RR", rr);
+        if let Some(t) = record_type {
+            params.insert("Type", t);
+        }
 
         self.send_request(action, params).await
     }
@@ -462,7 +467,7 @@ impl AliyunDns {
     /// use my_crate::{AliyunDns, DomainRecordsResponse};
     ///
     /// let aliyun_dns = AliyunDns::new("your_access_key_id", "your_access_key_secret");
-    /// let result: Result<DomainRecordsResponse, _> = aliyun_dns.query_subdomain_records("example.com","a.example.com","A").await;
+    /// let result: Result<DomainRecordsResponse, _> = aliyun_dns.query_subdomain_records("example.com","a.example.com","A", Some(1), Some(20)).await;
     /// ```
     pub async fn query_subdomain_records(
         &self,
